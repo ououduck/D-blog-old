@@ -59,7 +59,26 @@ jobs:
             curl -sS --fail-with-body -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects$1"
           }
-          projects=$(api "?per_page=100" | jq -r 'if .success then .result[].name else error(.errors[0].message // "读取 Pages 项目列表失败") end')
+          resp=$(api "")
+          check_ok() { # $1 = 页码说明
+            if [ "$(jq -r '.success' <<<"$resp")" != "true" ]; then
+              echo "::error::读取 Pages 项目列表失败（$1）：$(jq -r '.errors[0].message // "未知错误"' <<<"$resp")"
+              exit 1
+            fi
+          }
+          check_ok "第 1 页"
+          echo "账户内共 $(jq -r '.result_info.total_count' <<<"$resp") 个 Pages 项目，本页 $(jq -r '.result | length' <<<"$resp") 个，$(jq -r '.result_info.total_pages' <<<"$resp") 页"
+          projects=$(jq -r '.result[].name' <<<"$resp")
+          # 列表默认每页 20 个，项目多于 20 时必须翻页——否则真正挂着域名的项目可能落在
+          # 第二页，被误判成「没有项目挂着 blog.pldduck.com」。
+          total_pages=$(jq -r '.result_info.total_pages // 1' <<<"$resp")
+          page=2
+          while [ "$page" -le "$total_pages" ]; do
+            resp=$(api "?page=$page")
+            check_ok "第 $page 页"
+            projects="$projects"$'\n'"$(jq -r '.result[].name' <<<"$resp")"
+            page=$((page + 1))
+          done
           echo "账户内的 Pages 项目：$(echo "$projects" | tr '\n' ' ')"
           match=""
           for p in $projects; do
