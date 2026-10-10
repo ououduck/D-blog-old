@@ -7,19 +7,19 @@
 # 不再部署到 EdgeOne Pages：旧域名只保留 Cloudflare 一处出口，跳转规则（_redirects）
 # 也只有 Cloudflare 支持，避免两处内容不一致。
 #
-# ⚠️ blog.pldduck.com 的 CNAME 指向 d-blog-cy0.pages.dev（Pages 项目名与 pages.dev 子域
-#    同名；`d-blog.pages.dev` 是别人账户里的 Hugo 站）。项目名由触发时的输入决定，
-#    并有「Verify Pages project exists」一步兜底。
+# Pages 项目名是 `d-blog`，它的 pages.dev 子域却是 d-blog-cy0.pages.dev（`d-blog.pages.dev`
+# 被别人账户占用，Cloudflare 自动加后缀）——所以看 CNAME 反推项目名会推错，
+# blog.pldduck.com 的真正项目名由「Verify Pages project is the live one」一步核对。
 name: Deploy migration notice to Cloudflare Pages
 
 on:
   workflow_dispatch:
     inputs:
       project_name:
-        description: 'Cloudflare Pages 项目名（必须是真正绑定 blog.pldduck.com 的那个，见下方校验步骤的账户项目列表）'
+        description: 'Cloudflare Pages 项目名（默认值已核对为真正绑定 blog.pldduck.com 的项目；改错会被校验步骤拦下）'
         required: true
         type: string
-        default: 'd-blog-cy0'
+        default: 'd-blog'
 
 concurrency:
   group: deploy-stub
@@ -41,19 +41,37 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify Pages project exists
+      - name: Verify Pages project is the live one
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PROJECT_NAME: ${{ inputs.project_name }}
-        # 项目名写错不会报错，只会在账户里新建一个空项目：blog.pldduck.com 仍然指向
-        # 真正的旧项目，于是"部署成功"而线上毫无变化。所以先列清单再逐个比对。
+          LIVE_HOSTNAME: blog.pldduck.com
+        # 项目名写错时 `pages deploy` 不会报错，而是在账户里新建一个空项目：旧域名仍
+        # 指向真正的项目，于是"部署成功"而线上毫无变化。这里反向核对——遍历账户内全部
+        # Pages 项目，找出真正挂着 blog.pldduck.com 的那个，要求输入的项目名与之一致。
         run: |
-          npx --yes wrangler@4.123.0 pages project list | tee /tmp/projects.txt
-          if ! awk 'NR>1 {print $1}' /tmp/projects.txt | grep -qx "$PROJECT_NAME"; then
-            echo "::error::Cloudflare Pages 项目列表里没有「$PROJECT_NAME」。上面就是账户内的全部项目，请改用真正绑定 blog.pldduck.com 的那个名字重新触发。"
+          api() {
+            curl -sS --fail-with-body -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects$1"
+          }
+          projects=$(api "" | jq -r '.result[].name')
+          echo "账户内的 Pages 项目：$(echo "$projects" | tr '\n' ' ')"
+          match=""
+          for p in $projects; do
+            hosts=$(api "/$p/domains" | jq -r '.result[].hostname' 2>/dev/null || true)
+            printf '  %-12s → %s\n' "$p" "$(echo "$hosts" | tr '\n' ' ')"
+            if echo "$hosts" | grep -qx "$LIVE_HOSTNAME"; then match="$p"; fi
+          done
+          if [ -z "$match" ]; then
+            echo "::error::没有任何 Pages 项目挂着 $LIVE_HOSTNAME，域名绑定可能在 Cloudflare 面板之外（或子域在别的项目下）。请先在面板确认再部署。"
             exit 1
           fi
+          if [ "$match" != "$PROJECT_NAME" ]; then
+            echo "::error::$LIVE_HOSTNAME 实际绑定在项目「$match」，不是输入的「$PROJECT_NAME」。用「$match」重新触发，否则会部署到一个没人访问的新项目。"
+            exit 1
+          fi
+          echo "确认：$LIVE_HOSTNAME 绑定在项目「$PROJECT_NAME」，可以部署。"
 
       - name: Deploy to Cloudflare Pages
         env:
