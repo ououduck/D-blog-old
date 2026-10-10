@@ -26,4 +26,4 @@
 ## 背景
 
 旧博客 `blog.pldduck.com` 与旧主页 `www.pldduck.com` 已合并为单站 `www.pldduck.com`
-（仓库 `ououduck/pldduck`）。本仓库计划改名为 `D-blog-old` 并停止一切开发。
+（仓库 `ououduck/pldduck`）。本仓库已改名为 `D-blog-old`，停止一切开发。

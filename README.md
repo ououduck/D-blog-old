@@ -23,7 +23,7 @@ dist-stub/          部署产物（手写静态文件，无构建步骤）
   _redirects        Cloudflare Pages 重定向表：旧路径逐条 301 到新站同路径
   _headers          安全头与缓存策略（CSP 已收紧，公告页与 sw.js 强制回源校验）
 .github/workflows/
-  deploy.yml        手动触发，把 dist-stub 直传到 Cloudflare Pages 项目 d-blog
+  deploy.yml        手动触发，把 dist-stub 直传到 Cloudflare Pages 项目（项目名由触发时输入，默认 d-blog-cy0）
   feishu-webhook.yml  GitHub 事件 → 飞书通知
 scripts/            仅保留飞书通知所需的 4 个脚本（只用 Node 内置模块，无 npm 依赖，
                     CI 不装包也能跑）：feishu-webhook.mjs + lib/{feishu-webhook,gh-actions-logger,http}.mjs
