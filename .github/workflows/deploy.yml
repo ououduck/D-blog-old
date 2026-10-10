@@ -50,21 +50,26 @@ jobs:
         # 项目名写错时 `pages deploy` 不会报错，而是在账户里新建一个空项目：旧域名仍
         # 指向真正的项目，于是"部署成功"而线上毫无变化。这里反向核对——遍历账户内全部
         # Pages 项目，找出真正挂着 blog.pldduck.com 的那个，要求输入的项目名与之一致。
+        # 域名只从 domains API 的 custom_hostnames[] 取：自定义域名列在那里，而
+        # .result[].hostname 是 pages.dev 子域（对自定义域名恒为 null，全打 null 会误判）。
+        # 用 API 而非 wrangler 表格：表格按 │ 分列，runner 上的 awk 若是 mawk 会按字节切多
+        # 字节分隔符，列就错位了；jq 是 runner 保证有的。
         run: |
           api() {
             curl -sS --fail-with-body -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects$1"
           }
-          projects=$(api "" | jq -r '.result[].name')
+          projects=$(api "?per_page=100" | jq -r 'if .success then .result[].name else error(.errors[0].message // "读取 Pages 项目列表失败") end')
           echo "账户内的 Pages 项目：$(echo "$projects" | tr '\n' ' ')"
           match=""
           for p in $projects; do
-            hosts=$(api "/$p/domains" | jq -r '.result[].hostname' 2>/dev/null || true)
-            printf '  %-12s → %s\n' "$p" "$(echo "$hosts" | tr '\n' ' ')"
-            if echo "$hosts" | grep -qx "$LIVE_HOSTNAME"; then match="$p"; fi
+            # 单个项目的域名查询失败不整体中断（|| true），最终 match 为空会报错拦下部署。
+            hosts=$(api "/$p/domains" | jq -r '[.result[]?.custom_hostnames[]?.hostname] | join(" ")' || true)
+            printf '  %-20s → %s\n' "$p" "${hosts:-（无自定义域名）}"
+            if [ -n "$hosts" ] && echo " $hosts " | grep -q " $LIVE_HOSTNAME "; then match="$p"; fi
           done
           if [ -z "$match" ]; then
-            echo "::error::没有任何 Pages 项目挂着 $LIVE_HOSTNAME，域名绑定可能在 Cloudflare 面板之外（或子域在别的项目下）。请先在面板确认再部署。"
+            echo "::error::账户内没有任何 Pages 项目挂着 $LIVE_HOSTNAME。若域名解析在别的项目或 Cloudflare 之外，请先在面板确认。"
             exit 1
           fi
           if [ "$match" != "$PROJECT_NAME" ]; then
