@@ -1,0 +1,25 @@
+# 迁移提示页的安全头与缓存策略。
+#
+# CSP 相比旧博客大幅收紧：本页不再加载 Giscus、不蒜子、Clarity、Google Fonts，
+# 也不再需要 https: 通配的 img-src 与内联脚本白名单（样式与脚本都已外置为
+# migrate.css / migrate.js）。保留的是 HSTS、nosniff 与 frame/表单相关的收敛项。
+/*
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; manifest-src 'none'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
+
+# 公告页、跳转脚本与 service worker 必须每次回源校验：
+# 任何一处缓存过期都会让老访客停在旧壳里，看不到迁移公告，也看不到 301。
+/
+  Cache-Control: public, max-age=0, must-revalidate
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+/migrate.js
+  Cache-Control: public, max-age=0, must-revalidate
+/migrate.css
+  Cache-Control: public, max-age=0, must-revalidate

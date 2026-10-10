@@ -1,18 +1,15 @@
 # feishu-webhook.yml — GitHub 事件 → 飞书机器人 Webhook 推送（D-blog 项目消息提醒）。
 #
-# 覆盖三类提醒：
-#   1. 💬 新评论 / 新讨论 / 新 Issue（giscus 文章评论、留言板留言等）；
-#   2. 🚀 push 到 main 的提交（提交列表 + 对比链接）；
-#   3. ⚙️ 白名单内任一 Action 运行完成的结果（成功/失败/取消）。
+# 本站点已封存为纯静态跳转页：评论、讨论、友链 Issue 全部搬到 ououduck/pldduck，
+# 因此这里只保留两类提醒：
+#   1. 🚀 push 到 main 的提交（提交列表 + 对比链接）；
+#   2. ⚙️ 跳转页部署 workflow 的运行结果（成功/失败/取消）。
 #
 # 触发：
-#   - push: main 分支提交（.pages.yml 保存内容等都会走到这里）；
-#   - discussion_comment: created（giscus 评论）；
-#   - discussion: created（新建讨论）；
-#   - issues: opened（新 Issue）；
+#   - push: main 分支提交；
 #   - workflow_run: completed（白名单内 workflow 的运行结果；白名单不含本工作流自身，
 #     避免每次通知运行完成后又触发一次自身运行 —— 双倍 Actions 消耗）；
-#   - workflow_dispatch（手动测试；可配合 .pages.yml「🔔 测试 飞书机器人 Webhook 通知」按钮）。
+#   - workflow_dispatch（手动测试）。
 #
 # 一次性配置（仓库 Settings → Secrets and variables → Actions）：
 #   FEISHU_WEBHOOK_URL — 接收通知的 飞书机器人 Webhook 地址；默认请求体为飞书交互式卡片：
@@ -24,32 +21,19 @@ name: 飞书机器人 Webhook Notify
 on:
   push:
     branches: [main]
-  discussion_comment:
-    types: [created]
-  discussion:
-    types: [created]
-  issues:
-    types: [opened]
   workflow_run:
     # workflows 为必填键（缺失时 GitHub 拒绝解析，报 "does not reference any workflows"）。
     # 使用显式白名单（不含本工作流自身）：若用 "**" 通配，本工作流每次运行完成后
     # 也会触发一次自身的 workflow_run（脚本虽按名称跳过发送，但运行本身照常创建，
     # 每个事件产生 2 次运行、双倍 Actions 消耗）。
     # ⚠️ 白名单需手动维护：新增 workflow 时在此补充，否则其运行结果（尤其失败）会静默。
-    # 注意 check-broken-links.yml 为每周定时任务，已在白名单内，失败会提醒；勿删。
     workflows:
-      - "Akismet Discussion Comment Checker"
-      - "CI"
-      - "Check Broken Links"
-      - "Comment Keyword Filter"
-      - "Comment Keyword Recheck"
-      - "Deploy to Cloudflare & EdgeOne"
-      - "Notify Blog Post Update"
+      - "Deploy migration notice to Cloudflare Pages"
     types: [completed]
   workflow_dispatch:
     inputs:
       payload:
-        description: 'Pages CMS payload as JSON，手动触发可用 {"repository":{"ref":"main"}}'
+        description: '手动测试用 JSON，可填 {"repository":{"ref":"main"}}'
         required: true
         type: string
 

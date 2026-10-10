@@ -1,97 +1,40 @@
-# deploy.yml — 手动触发的双平台部署流水线。
+# deploy.yml — 已封存站点的跳转提示页部署（仅 Cloudflare Pages）。
 #
-# 构建在 GitHub Actions 完成（公开仓库免费无限额度），产物通过直传（direct upload）
-# 推送到 Cloudflare Pages 与 EdgeOne Pages，两个平台均不消耗构建额度。
+# 本站点不再构建：dist-stub/ 是手写的静态产物，直接整目录直传，CI 里不装依赖、不跑构建。
+# 站点内容已迁往 www.pldduck.com（仓库 ououduck/pldduck），这里只负责迁移公告与 301 跳转，
+# 因此只在真正需要改动跳转表/公告页时手动执行一次。
 #
-# 触发方式（仅 workflow_dispatch，日常 push 到 main 不会触发任何部署）：
-#   1. Pages CMS 侧边栏「🚀 部署到 Cloudflare & EdgeOne」按钮（见 .pages.yml 的 actions 段），
-#   2. GitHub Actions 页面手动 Run workflow（payload 最小可用 {"repository":{"ref":"main"}}）。
-#
-# Pages CMS 会以 JSON 字符串填充 inputs.payload（含 repository.ref / sha、触发人等），
-# 协议见 https://pagescms.org/docs/configuration/actions/
-name: Deploy to Cloudflare & EdgeOne
+# 不再部署到 EdgeOne Pages：旧域名只保留 Cloudflare 一处出口，跳转规则（_redirects）
+# 也只有 Cloudflare 支持，避免两处内容不一致。
+name: Deploy migration notice to Cloudflare Pages
 
 on:
   workflow_dispatch:
-    inputs:
-      payload:
-        description: 'Pages CMS payload as JSON，手动触发可用 {"repository":{"ref":"main"}}'
-        required: true
-        type: string
 
 concurrency:
-  # 连续触发只保留最新一次：避免快速连点产生重复构建/部署。
-  group: deploy-site
+  group: deploy-stub
   cancel-in-progress: true
 
 permissions:
   contents: read
-  # 构建期拉取 Giscus 评论数（fetch-giscus-comments.mjs 调 GitHub GraphQL
-  # repository.discussions）需要 discussions 读取权限；缺失时评论数在部署构建中
-  # 会静默跳过（详见 scripts/fetch-giscus-comments.mjs）。
-  discussions: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
-        with:
-          # Pages CMS 触发时按 CMS 当前打开的分支（main）检出；手动触发时回退到触发分支。
-          ref: ${{ inputs.payload != '' && fromJSON(inputs.payload).repository.ref || '' }}
-
-      - name: Show dispatch context
-        env:
-          # payload 为 Pages CMS JSON：经 env 间接引用而非 ${{
-          # }} 内插进 run: —— GitHub 表达式在 shell 拼接前展开，
-          # payload 内嵌的 $(...)/反引号会以代码执行（注入面）。
-          PAYLOAD_REF: ${{ inputs.payload != '' && fromJSON(inputs.payload).repository.ref || '' }}
-          PAYLOAD_USER: ${{ inputs.payload != '' && fromJSON(inputs.payload).triggeredBy.githubUsername || '' }}
-        run: |
-          echo "Ref: ${PAYLOAD_REF:-$GITHUB_REF}"
-          echo "Triggered by: ${PAYLOAD_USER:-manual}"
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build site
-        run: npm run build
-        env:
-          VITE_SITE_URL: https://blog.pldduck.com
-          # GITHUB_TOKEN 是 secret，不会自动导出到 shell run 步骤，必须显式注入；
-          # fetch-giscus-comments.mjs 读取它拉取评论数（discussions: read 已声明）。
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install npm 11 for deploy CLIs
-        # node 22 浮动版本现捆绑 npm 10.9.x，其 arborist 安装 edgeone@1.6.28 时
-        # 崩溃（npm error Cannot read properties of null (reading 'edgesOut')，
-        # 已本地用 npm 10.9.4 复现、npm 11 验证正常；与命令形式/目录/token 无关）。
-        # 部署 CLI 统一用 npm 11 运行；npm ci 仍用捆绑 npm（已验证可正常装本仓库）。
-        run: npm install -g npm@11.16.0
 
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        # 直传（direct upload）部署：平台不构建，不消耗构建额度。
+        # 直传（direct upload）：平台不构建，不消耗构建额度。
         # wrangler 固定精确版本：浮动 major tag 每次从 npm 拉取，部署行为不可复现且不可审计。
-        run: npx --yes wrangler@4.123.0 pages deploy dist --project-name=d-blog --branch=main --commit-dirty=true
-
-      - name: Deploy to EdgeOne Pages
-        env:
-          # CLI 直接读取环境变量鉴权（源码 process.env.EDGEONE_PAGES_API_TOKEN
-          # 优先于 -t 参数），token 不再出现在进程 argv（ps 可见/报错回显）。
-          EDGEONE_PAGES_API_TOKEN: ${{ secrets.EDGEONE_API_TOKEN }}
-        # 直传部署（EdgeOne CLI 仅支持直传类型项目），-e production 为生产环境。
-        # 命令为 makers deploy（pages deploy 为改名前的旧命令，官方文档页尚未更新）。
-        # edgeone 固定精确版本，理由同上；npx 由上方步骤升级到 npm 11 后运行
-        # （npm 10.9.x 的 arborist 装此包会崩，见 Install npm 11 步骤注释）。
-        run: npx --yes edgeone@1.6.28 makers deploy ./dist -n d-blog -e production
+        run: npx --yes wrangler@4.123.0 pages deploy dist-stub --project-name=d-blog --branch=main --commit-dirty=true

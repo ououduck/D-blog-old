@@ -1,97 +1,37 @@
-# Dependencies
+# 依赖与构建产物（本仓库已封存，正常不会再出现）
 node_modules
-.pnpm-debug.log*
-
-# Husky 自动生成的内部脚本目录（.husky/pre-commit 等手工文件保留提交）
-.husky/_
-
-# Build outputs
 dist
 dist-ssr
+generated
 *.local
 
-# EdgeOne Pages 边缘函数本地构建产物（functions/ 目录的编译缓存）
-.edgeone/
-.tef_dist/
-
-# Generated files
-generated/
-
-# Cache directories
-.vite
-.cache
-.turbo
-.eslintcache
-*.tsbuildinfo
-
-# Environment files
-.env
-.env.*
-!.env.example
-
-# DSH Harness 会话扫描产物（与 .prettierignore / eslint 保持一致）
-.dsh-*.cjs
-
-# Editor directories
+# 编辑器与操作系统噪声
 .vscode/*
 !.vscode/extensions.json
 .idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# OS-specific files
 .DS_Store
-.DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-ehthumbs.db
 Thumbs.db
 Desktop.ini
+*.sw?
 
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-# 根目录构建/调试日志（build-*.log / preview*.log / verify-*.log 等，均由 *.log 覆盖）
-
-# Testing
-coverage
-*.lcov
-.nyc_output
-
-# Auto-generated at build time
-public/feed.xml
-public/sitemap.xml
-public/sitemap-pages.xml
-public/sitemap-posts.xml
-public/sitemap-images.xml
-public/sitemap-shuoshuo.xml
-public/sitemap-index.xml
-public/robots.txt
-public/llms.txt
-public/llms-full.txt
-public/og-card.png
-public/generated-images/
-
-# Local tool data
+# 各类 AI/工具会话目录
 .claude/
-CLAUDE.md
-AGENTS.md
-.trae/
-.kiro/
-.codebuddy/
-CODEBUDDY.md
 .cursor/
 .windsurf/
-.zcode/
+.kiro/
+.trae/
+.codebuddy/
 .obsidian/
-.trash/
+.zcode/
 .dsh/
+.dsh-*.cjs
+AGENTS.md
+CLAUDE.md
+CODEBUDDY.md
+
+# 日志
+logs
+*.log

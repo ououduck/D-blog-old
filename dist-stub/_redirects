@@ -1,0 +1,36 @@
+# Cloudflare Pages 重定向表：旧博客地址逐条 301 到新站同路径。
+#
+# 新站 www.pldduck.com 的文章 URL 与这里逐字节一致（/post/<id> 未变），所以深层路径用
+# :splat 原样搬运，比一律跳首页更能保住既有的搜索收录与外链权重。
+#
+# 规则自上而下匹配、先匹配先生效。根路径 / 故意不写规则：让 dist-stub/index.html
+# 以 200 返回迁移公告（301 无法同时展示公告页）。未列出的未知路径由 404.html 兜底。
+#
+# 目标 URL 不带查询串时，Cloudflare 会保留原始查询串（如 /search?q=xxx 的 q 会跟过去）。
+
+# ── 内容路径：保留子路径 ──
+/post/* https://www.pldduck.com/post/:splat 301
+/shuoshuo/* https://www.pldduck.com/shuoshuo/:splat 301
+
+# ── 功能页：逐条列出（不用 /* 通配，避免把根路径也吞掉）──
+/shuoshuo https://www.pldduck.com/shuoshuo 301
+/friends https://www.pldduck.com/friends 301
+/about https://www.pldduck.com/about 301
+/archive https://www.pldduck.com/archive 301
+/tags https://www.pldduck.com/tags 301
+/stats https://www.pldduck.com/stats 301
+/guestbook https://www.pldduck.com/guestbook 301
+/cover https://www.pldduck.com/cover 301
+/watermark https://www.pldduck.com/watermark 301
+/search https://www.pldduck.com/search 301
+
+# ── 订阅与机器可读资源：读者与爬虫会直接请求这些 ──
+/feed.xml https://www.pldduck.com/feed.xml 301
+/robots.txt https://www.pldduck.com/robots.txt 301
+/llms.txt https://www.pldduck.com/llms.txt 301
+/llms-full.txt https://www.pldduck.com/llms-full.txt 301
+/sitemap-index.xml https://www.pldduck.com/sitemap-index.xml 301
+/sitemap-posts.xml https://www.pldduck.com/sitemap-posts.xml 301
+/sitemap-pages.xml https://www.pldduck.com/sitemap-pages.xml 301
+/sitemap-shuoshuo.xml https://www.pldduck.com/sitemap-shuoshuo.xml 301
+/sitemap-images.xml https://www.pldduck.com/sitemap-images.xml 301

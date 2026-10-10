@@ -1,0 +1,114 @@
+/* 迁移提示页样式：纯黑白 editorial，不引外部字体（CSP 已收紧到 'self'）。 */
+:root {
+  color-scheme: light dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+  background: #fff;
+  color: #000;
+  font-family: ui-serif, Georgia, "Songti SC", "Noto Serif CJK SC", serif;
+  line-height: 1.7;
+}
+
+main {
+  width: 100%;
+  max-width: 34rem;
+}
+
+.rule {
+  border: 0;
+  border-top: 1px solid currentColor;
+  opacity: 0.24;
+  margin: 0 0 1.75rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+
+h1 {
+  margin: 0 0 1.25rem;
+  font-size: clamp(1.6rem, 5vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.95em;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 0.05em;
+}
+
+p {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+}
+
+.muted {
+  font-size: 0.875rem;
+  opacity: 0.68;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+
+a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  border: 1px solid #000;
+  background: #000;
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+a.button:hover {
+  background: #fff;
+  color: #000;
+}
+
+a.link {
+  color: inherit;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000;
+    color: #fff;
+  }
+
+  a.button {
+    border-color: #fff;
+    background: #fff;
+    color: #000;
+  }
+
+  a.button:hover {
+    background: #000;
+    color: #fff;
+  }
+}
