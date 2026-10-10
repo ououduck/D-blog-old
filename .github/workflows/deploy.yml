@@ -50,43 +50,56 @@ jobs:
         # 项目名写错时 `pages deploy` 不会报错，而是在账户里新建一个空项目：旧域名仍
         # 指向真正的项目，于是"部署成功"而线上毫无变化。这里反向核对——遍历账户内全部
         # Pages 项目，找出真正挂着 blog.pldduck.com 的那个，要求输入的项目名与之一致。
-        # 域名只从 domains API 的 custom_hostnames[] 取：自定义域名列在那里，而
-        # .result[].hostname 是 pages.dev 子域（对自定义域名恒为 null，全打 null 会误判）。
-        # 用 API 而非 wrangler 表格：表格按 │ 分列，runner 上的 awk 若是 mawk 会按字节切多
-        # 字节分隔符，列就错位了；jq 是 runner 保证有的。
+        # 域名从「项目列表」响应里取（wrangler 的 Project Domains 列就是它渲染的），不再
+        # 单独请求 /domains：那个端点的字段名两次猜错（.result[].hostname 全 null、
+        # .result[].custom_hostnames 全空），而列表响应一定能渲染出域名。为了不继续猜，
+        # 这里对项目对象做「深度遍历所有字符串 + 全等比对」，域名字段叫什么名字都无所谓。
         run: |
           api() {
             curl -sS --fail-with-body -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects$1"
           }
-          resp=$(api "")
-          check_ok() { # $1 = 页码说明
+          # 每个项目输出一行：项目名 <TAB> 该项目对象里出现过的所有像域名的字符串
+          # （最外层不能再套 [ ]：那样 jq -r 打印的是一个数组，而不是逐行文本。）
+          domains_jq='.result[] | .name as $n | ([.. | strings | select(test("^[a-z0-9][a-z0-9._-]*\\.[a-z]{2,}$"))] | unique | join(" ")) | $n + "\t" + .'
+          tsv=/tmp/pages-domains.tsv
+          : > "$tsv"
+          check_ok() { # $1 = 第几页
             if [ "$(jq -r '.success' <<<"$resp")" != "true" ]; then
-              echo "::error::读取 Pages 项目列表失败（$1）：$(jq -r '.errors[0].message // "未知错误"' <<<"$resp")"
+              echo "::error::读取 Pages 项目列表失败（第 $1 页）：$(jq -r '.errors[0].message // "未知错误"' <<<"$resp")"
               exit 1
             fi
           }
-          check_ok "第 1 页"
-          echo "账户内共 $(jq -r '.result_info.total_count' <<<"$resp") 个 Pages 项目，本页 $(jq -r '.result | length' <<<"$resp") 个，$(jq -r '.result_info.total_pages' <<<"$resp") 页"
-          projects=$(jq -r '.result[].name' <<<"$resp")
-          # 列表默认每页 20 个，项目多于 20 时必须翻页——否则真正挂着域名的项目可能落在
+          resp=$(api "")
+          check_ok 1
+          jq -r '.result[0] | keys | join(", ")' <<<"$resp" | sed 's/^/项目对象字段：/'
+          echo "账户内共 $(jq -r '.result_info.total_count' <<<"$resp") 个 Pages 项目，本页 $(jq -r '.result | length' <<<"$resp") 个，共 $(jq -r '.result_info.total_pages' <<<"$resp") 页"
+          jq -r "$domains_jq" <<<"$resp" > "$tsv"
+          # 列表默认每页 20 个，项目多于 20 个时必须翻页——否则真正挂着域名的项目可能落在
           # 第二页，被误判成「没有项目挂着 blog.pldduck.com」。
           total_pages=$(jq -r '.result_info.total_pages // 1' <<<"$resp")
           page=2
           while [ "$page" -le "$total_pages" ]; do
             resp=$(api "?page=$page")
-            check_ok "第 $page 页"
-            projects="$projects"$'\n'"$(jq -r '.result[].name' <<<"$resp")"
+            check_ok "$page"
+            jq -r "$domains_jq" <<<"$resp" >> "$tsv"
             page=$((page + 1))
           done
-          echo "账户内的 Pages 项目：$(echo "$projects" | tr '\n' ' ')"
           match=""
-          for p in $projects; do
-            # 单个项目的域名查询失败不整体中断（|| true），最终 match 为空会报错拦下部署。
-            hosts=$(api "/$p/domains" | jq -r '[.result[]?.custom_hostnames[]?.hostname] | join(" ")' || true)
-            printf '  %-20s → %s\n' "$p" "${hosts:-（无自定义域名）}"
-            if [ -n "$hosts" ] && echo " $hosts " | grep -q " $LIVE_HOSTNAME "; then match="$p"; fi
-          done
+          matches=0
+          while IFS=$'\t' read -r p hosts; do
+            [ -n "$p" ] || continue
+            printf '  %-14s → %s\n' "$p" "${hosts:-（该项目对象里没有域名）}"
+            # 两侧补空格做全等比对：避免 xblog.pldduck.com 被当成 blog.pldduck.com 命中。
+            if [ -n "$hosts" ] && echo " $hosts " | grep -q " $LIVE_HOSTNAME "; then
+              match="$p"
+              matches=$((matches + 1))
+            fi
+          done < "$tsv"
+          if [ "$matches" -gt 1 ]; then
+            echo "::error::$LIVE_HOSTNAME 同时出现在多个项目的对象里（最后一个是「$match」），无法判定部署目标，请先在面板确认。"
+            exit 1
+          fi
           if [ -z "$match" ]; then
             echo "::error::账户内没有任何 Pages 项目挂着 $LIVE_HOSTNAME。若域名解析在别的项目或 Cloudflare 之外，请先在面板确认。"
             exit 1
