@@ -15,7 +15,9 @@
 # ── 功能页：逐条列出（不用 /* 通配，避免把根路径也吞掉）──
 /shuoshuo https://www.pldduck.com/shuoshuo 301
 /friends https://www.pldduck.com/friends 301
-/about https://www.pldduck.com/about 301
+# 新站已删除 /about，原关于页内容（站主自述、技术栈、折腾记录）并入首页，
+# 因此这条是唯一不能按同路径搬运的功能页：跳同路径会落到新站 404。
+/about https://www.pldduck.com/ 301
 /archive https://www.pldduck.com/archive 301
 /tags https://www.pldduck.com/tags 301
 /stats https://www.pldduck.com/stats 301
